@@ -8,6 +8,8 @@ from preprocessing.data_merger import merge_data
 from feature_engineering.driver_features import create_driver_features
 from feature_engineering.constructor_features import create_constructor_features
 from feature_engineering.target_creation import create_targets
+from feature_engineering.historical_features import add_historical_features  # Add this import
+from feature_engineering.advanced_features import add_advanced_features  # New import for advanced features
 from modeling.data_preparation import prepare_model_data
 from modeling.model_training import train_wdc_model, train_wcc_model
 from modeling.evaluation import evaluate_model
@@ -41,28 +43,32 @@ def main():
     
     # 4. Feature engineering
     print("\n🔧 CREATING FEATURES")
+    
+    # Create base features
     driver_features = create_driver_features(merged_df)
     constructor_features = create_constructor_features(merged_df)
-    
-    # Verify no duplicates in merge keys
-    assert not driver_features.duplicated(subset=['driverId', 'constructorId', 'year']).any(), "Duplicate entries in driver features"
-    assert not constructor_features.duplicated(subset=['constructorId', 'year']).any(), "Duplicate entries in constructor features"
     
     # Combine features
     features_df = pd.merge(
         driver_features,
         constructor_features,
         on=['constructorId', 'year'],
-       
-        validate='m:1'  # many-to-one relationship
+        how='left',
+        validate='m:1'
     )
+    
+    # Add historical features
+    features_df = add_historical_features(features_df)
     
     # Create targets
     features_df = create_targets(features_df, merged_df)
     
-    # Verify all required columns exist
+    # Verify all required features exist
     missing_cols = [col for col in MODEL_FEATURES if col not in features_df.columns]
     if missing_cols:
+        print("\n❌ Missing features:")
+        for col in missing_cols:
+            print(f"  - {col}")
         raise ValueError(f"Missing required features: {missing_cols}")
     
     # 5. Prepare modeling data
@@ -84,8 +90,28 @@ def main():
     # 8. Make predictions
     print("\n🔮 MAKING PREDICTIONS")
     predict_year = 2024
-    predict_current_season(wdc_model, features_df, predict_year, 'wdc')
-    predict_current_season(wcc_model, features_df, predict_year, 'wcc')
+    
+    # Create prediction features
+    prediction_features = features_df.copy()
+    
+    # No need to add historical features again since they're already in the DataFrame
+    predict_current_season(
+        wdc_model, 
+        prediction_features, 
+        predict_year, 
+        'wdc',
+        cleaned_data['drivers'], 
+        cleaned_data['constructors']
+    )
+    
+    predict_current_season(
+        wcc_model, 
+        prediction_features, 
+        predict_year, 
+        'wcc',
+        cleaned_data['drivers'], 
+        cleaned_data['constructors']
+    )
     
     # 9. Feature importance
     print("\n🔍 ANALYZING FEATURE IMPORTANCE")

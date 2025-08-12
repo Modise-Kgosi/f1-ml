@@ -1,16 +1,19 @@
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 def evaluate_model(model, X_test, y_test, model_name):
-    # Get predictions
-    y_pred = model.predict(X_test)
+    """Evaluate model performance"""
+    # Scale the test data using the model's scaler
+    X_scaled = model.scaler.transform(X_test)
     
-    # Get probabilities - handle the case where there's only one class
-    y_prob = model.predict_proba(X_test)
-    # If only one column, it means all predictions are for the negative class (0)
+    # Get predictions
+    y_pred = model.predict(X_scaled)
+    y_prob = model.predict_proba(X_scaled)
+    
+    # Get probability for positive class
     if y_prob.shape[1] == 1:
-        y_prob = 1 - y_prob  # Convert to probability of positive class
+        y_prob = 1 - y_prob[:, 0]
     else:
-        y_prob = y_prob[:, 1]  # Probability of positive class
+        y_prob = y_prob[:, 1]
     
     # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred)
@@ -26,11 +29,9 @@ def evaluate_model(model, X_test, y_test, model_name):
     print(f"F1 Score:  {f1:.3f}")
     
     # Print class distribution
-    total = len(y_test)
-    positives = sum(y_test)
     print(f"\nClass Distribution in Test Set:")
-    print(f"Total samples: {total}")
-    print(f"Positive class (Champions): {positives} ({(positives/total)*100:.1f}%)")
-    print(f"Negative class (Others): {total-positives} ({((total-positives)/total)*100:.1f}%)")
+    print(f"Total samples: {len(y_test)}")
+    print(f"Positive class (Champions): {sum(y_test)} ({sum(y_test)/len(y_test)*100:.1f}%)")
+    print(f"Negative class (Others): {len(y_test)-sum(y_test)} ({(1-sum(y_test)/len(y_test))*100:.1f}%)")
     
     return y_pred, y_prob

@@ -54,7 +54,7 @@ This machine learning model predicts both Formula 1 World Drivers' Championship 
 ## Technical Details
 
 ### Dependencies
-```bash
+```
 pandas
 numpy
 scikit-learn

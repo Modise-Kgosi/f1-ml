@@ -1,4 +1,4 @@
-# main.py
+import pandas as pd
 from data_loading.local_loader import load_datasets
 from preprocessing.data_cleaner import (
     clean_races, clean_results, clean_driver_standings,
@@ -44,18 +44,30 @@ def main():
     driver_features = create_driver_features(merged_df)
     constructor_features = create_constructor_features(merged_df)
     
+    # Verify no duplicates in merge keys
+    assert not driver_features.duplicated(subset=['driverId', 'constructorId', 'year']).any(), "Duplicate entries in driver features"
+    assert not constructor_features.duplicated(subset=['constructorId', 'year']).any(), "Duplicate entries in constructor features"
+    
     # Combine features
-    features_df = driver_features.merge(
-        constructor_features, 
-        on=['constructorId', 'year']
+    features_df = pd.merge(
+        driver_features,
+        constructor_features,
+        on=['constructorId', 'year'],
+       
+        validate='m:1'  # many-to-one relationship
     )
     
     # Create targets
     features_df = create_targets(features_df, merged_df)
     
+    # Verify all required columns exist
+    missing_cols = [col for col in MODEL_FEATURES if col not in features_df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required features: {missing_cols}")
+    
     # 5. Prepare modeling data
     print("\n⚙️ PREPARING MODEL DATA")
-    (X_train, X_test, 
+    (X_train, X_test,
      y_wdc_train, y_wdc_test,
      y_wcc_train, y_wcc_test) = prepare_model_data(features_df)
     
